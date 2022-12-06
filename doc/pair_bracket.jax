@@ -1,0 +1,135 @@
+*pair_bracket.jax* 括弧などをペアで入力/削除する
+
+Author:  Iranoan <iranoan+vim@gmail.com>
+Repository: https://github.com/iranoan/pair_bracket
+License: GPL Ver.3.
+
+
+==============================================================================
+                                                         *pair_bracket-contents*
+目次~
+
+	* 目次                                                 |pair_bracket-contents|
+	* 概要                                             |pair_bracket-introduction|
+	* 要件                                                  |pair_bracket-require|
+	* インストール                                          |pair_bracket-install|
+	* オプション                                             |pair_bracket-option|
+
+
+==============================================================================
+                                                     *pair_bracket-introduction*
+概要~
+
+(), [], {} といった括弧や ", ' といった引用符やスペースをペアで入力/削除する
+
+参照: ../pair_bracket.gif
+
+この種のプラグインは数多く有るが次が不満だったので作成
+* 全角に対応していない
+* |CmdlineLeave| が働いてしまう
+
+動作規則~
+* 開き括弧の入力はカーソル前後に対応した閉じ括弧がなければペア入力
+* 閉じ括弧の入力はカーソル直後が同じ閉じ括弧で、カーソル前に対応する開き括弧も
+	有ればカーソル移動し、無ければ閉じ括弧を入力
+* 前後が括弧ならば <Space> もペアで入力/削除
+* 前後が括弧ならば <CR> は括弧の間に空行作成
+* 引用符は
+	- "Alice's Wonderland" といった入力も素直に入力できるように直前がアルファベッ
+		ト、数字の、奇数個の \ ときはペアで入力しない
+		(英字以外のアルファベットはかなり適当)
+	- Python の文字列 ''' 'string' ''' や TeX の数式 $$F=ma$$ しやすいように直前が
+		連続する同一記号なら直後がペアとなる個数分の引用符を入力
+	- そうでなければ、閉じ括弧と同じくタイプと同じ引用符ならカーソル移動
+* <BS> はペアで括弧、引用符を削除
+	- 前後が括弧ならば間のスペースもペアで削除
+
+==============================================================================
+                                                          *pair_bracket-require*
+要件~
+
+Vim version 9.0 以上
+Vim9 script で書かれているので、version 8.0 以前や NeoVim では動作しない
+
+
+==============================================================================
+                                                          *pair_bracket-install*
+インストール~
+
+使用しているパッケージ・マネージャに従えば良い
+
+Vundle (https://github.com/gmarik/vundle)~
+>
+	Plug 'iranoan/pair_bracket'
+
+Vim-Plug (https://github.com/junegunn/vim-plug)~
+>
+	Plug 'iranoan/pair_bracket'
+
+NeoBundle (https://github.com/Shougo/neobundle.vim)~
+>
+	NeoBundle 'iranoan/pair_bracket'
+
+dein.nvim (https://github.com/Shougo/dein.vim)~
+>
+	call dein#add('iranoan/pair_bracket')
+
+Vim packadd~
+>
+	$ git clone https://github.com/iranoan/pair_bracket ~/.vim/pack/iranoan/start/pair_bracket
+
+
+==============================================================================
+                                                           *pair_bracket-option*
+オプション~
+
+g:pairbracket                                                    *g:pairbracket*
+	Type: |Dictionary|
+	Default: `{`
+						`'{': {'pair': '}', 'space': 1},`
+						`'[': {'pair': ']', 'space': 1},`
+						`'(': {'pair': ')', 'space': 1}`
+					`}`
+
+	* 辞書のキーに開き括弧、値も辞書で
+			キー 		値・意味~
+			pair 		閉じ括弧 (必須)
+			space		1 の時前後が括弧の時のスペースもペアで入力
+			     		なければ普通にスペースを入力
+			type 		特定の filetype (|'filetype'|) に限定
+			     		なければ全てのファイル・タイプ
+	* 下記の Example のように複数文字の指定も可能
+
+	Example: >
+		let g:pairbracket = {
+			\ '{': {'pair': '}', 'space': 1},
+			\ '[': {'pair': ']', 'space': 1},
+			\ '(': {'pair': ')', 'space': 1},
+			\ '/*': {'pair': '*/', 'space': 1, 'type': ['c', 'cpp']},
+			\ '「': {'pair': '」'},
+			\ }
+<
+g:pairquote                                                        *g:pairquote*
+	Type: |Dictionary|
+	Default: `{`
+						`'''': {},`
+						`'"': {},`
+						`'```': {}`
+					`}`
+
+	* ペアで入力する引用符 (記号) をキーとして指定
+			キー 		値・意味~
+			type 		特定の filetype (|'filetype'|) に限定
+			     		なければ全てのファイル・タイプ
+	* 後の拡張のためオプションも辞書で指定する
+	* |g:pairbracket| と異なり 1 文字しか想定していない
+
+	Example: >
+		let g:pairquote = {
+			\ '''': {},
+			\ '"': {},
+			\ '`': {},
+			\ '$': {'type': ['tex']},
+			\ }
+<
+vim:tw=78:ts=2:ft=help:norl:noet:fen:
