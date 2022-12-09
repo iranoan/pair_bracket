@@ -48,8 +48,8 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<
 	# 未対応の開き括弧の数
 	var cket_pos: number
 	var bra_pos: number
-	var pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. bra, '', 'g')
-	var nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. cket, '', 'g')
+	var pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
+	var nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. escape(cket, '.$*~\'), '', 'g')
 	while true # 開き括弧より前に有る閉じ括弧を除く
 		cket_pos = stridx(pline, cket)
 		if cket_pos == -1
@@ -95,8 +95,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	[pline, nline] = SeparateLine()
 	var pairStr: string
 	for [k, v] in items(g:pairbracket)
-		pairStr = g:pairbracket[k].pair
-		if str ==# pairStr
+		if str ==# v.pair
 			pairStr = k
 			break
 		endif
@@ -123,17 +122,19 @@ def Quote(str: string): string # クォーテーションの入力
 	if index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
 		return str
 	endif
+	def IsOddQuote(l: string, s: string): number # 引用符の個数が奇数個か?
+		return count(substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\'), '', 'g'), s) % 2
+	enddef
 	var pline: string
 	var nline: string
 	[pline, nline] = SeparateLine()
-	var nextChar = matchstr(nline, '.')
 	var prevChar = matchstr(pline, '.$')
 	var nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\') .. '\+'))
 	var prevQuote = strlen(matchstr(pline, escape(str, '.$*~\') .. '\+$'))
 	if strlen(matchstr(pline, '\\\+$')) % 2  # 直前が \ でエスケープされている
 		return str
 	elseif prevQuote >= 2 # 直前が連続する引用符
-		if nextQuote == prevQuote # 直前/直後が同一個数→カーソル移動
+		if nextQuote >= prevQuote # 直後の個数が直前の個数以上→カーソル移動
 			return &rightleft ? "\<Left>" : "\<Right>"
 		endif
 		# 直前/直後の個数が異なるので、直後を直前と同じ個数にして間にカーソル移動
@@ -146,8 +147,19 @@ def Quote(str: string): string # クォーテーションの入力
 			q ..= rl
 		endfor
 		return q
-	elseif nextChar ==# str
-		return &rightleft ? "\<Left>" : "\<Right>"
+	elseif nextQuote >= 1 # 直後がタイプと同じ記号
+		if nextQuote >= prevQuote # 直前/直後が同一個数→カーソル移動
+			return &rightleft ? "\<Left>" : "\<Right>"
+		endif
+		var is_prev_odd = IsOddQuote(pline, str) # カーソルより前に有る引用符が奇数個か?
+		var is_next_odd = IsOddQuote(nline, str) # カーソルより前に有る引用符が奇数個か?
+		if is_prev_odd == is_next_odd
+			return Inpair(str)
+		elseif is_prev_odd
+			return str
+		else
+			return &rightleft ? "\<Left>" : "\<Right>"
+		endif
 	elseif prevChar =~# '\a' || (prevChar =~# '\d') || prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
 		return str
 	endif
