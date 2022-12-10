@@ -207,7 +207,7 @@ def CR(): string # 改行の入力
 	var nline: string
 
 	if mode(1) =~# '^R'
-		return str
+		return "\<CR>"
 	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
