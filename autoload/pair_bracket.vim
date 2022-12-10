@@ -5,6 +5,7 @@ export def Init(): void
 	def SetBracket(s1: string, s2: dict<any>): void
 		var k = substitute(s1, '|', '<Bar>', 'g')
 		var v = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
+
 		execute 'inoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
 		k = substitute(s2.pair, '|', '<Bar>', 'g')
 		v = substitute(substitute(s2.pair, '''', '''''', 'g'), '|', '\\|', 'g')
@@ -14,6 +15,7 @@ export def Init(): void
 	def SetQuote(s: string): void
 		var k = substitute(s, '|', '<Bar>', 'g')
 		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
+
 		execute 'inoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
 	enddef
 
@@ -41,6 +43,7 @@ enddef
 def SeparateLine(): list<string> # カーソルより前/後のカーソル行の文字列
 	var column = col('.')
 	var nline = getline('.')
+
 	return [strpart(nline, 0, column - 1), strpart(nline, column - 1)]
 enddef
 
@@ -50,6 +53,7 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<
 	var bra_pos: number
 	var pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
 	var nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. escape(cket, '.$*~\'), '', 'g')
+
 	while true # 開き括弧より前に有る閉じ括弧を除く
 		cket_pos = stridx(pline, cket)
 		if cket_pos == -1
@@ -67,15 +71,17 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<
 enddef
 
 def InputBra(str: string): string # 括弧などをペアで入力
+	var pline: string
+	var nline: string
+	var prevMatch: number
+	var nextMatch: number
+	var pairStr:string
+
 	if index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
 		return str
 	endif
-	var pline: string
-	var nline: string
 	[pline, nline] = SeparateLine()
-	var pairStr = g:pairbracket[str].pair
-	var prevMatch: number
-	var nextMatch: number
+	pairStr = g:pairbracket[str].pair
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr)
 	if prevMatch >= nextMatch
 		var move: string
@@ -92,16 +98,17 @@ enddef
 def InputCket(str: string): string # 閉じ括弧の入力、または入力の変わりに移動
 	var pline: string
 	var nline: string
-	[pline, nline] = SeparateLine()
+	var prevMatch: number
+	var nextMatch: number
 	var pairStr: string
+
+	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if str ==# v.pair
 			pairStr = k
 			break
 		endif
 	endfor
-	var prevMatch: number
-	var nextMatch: number
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
 		return &rightleft ? "\<Left>" : "\<Right>"
@@ -112,32 +119,61 @@ enddef
 
 def Quote(str: string): string # クォーテーションの入力
 	var rl = &rightleft ? "\<Right>" : "\<Left>"
-	def Inpair(s: string): string
-		var ret = s .. s
-		for i in range(strcharlen(s))
+	var pline: string
+	var nline: string
+	var prevChar: string
+	var nextQuote: number
+	var prevQuote: number
+
+	def InPair(): string
+		var ret = str .. str
+
+		for i in range(strcharlen(str))
 			ret ..= rl
 		endfor
 		return ret
 	enddef
+
+	def InPairNextPrev(p: string, n: string): string # 直前/直後に限らずカーソルより前 (p)/後 (n) の引用記号個数に応じて、ペア入力か否かを変える
+		var is_prev_odd: number # カーソルより前に有る引用符が奇数個か?
+		var is_next_odd: number # カーソルより前に有る引用符が奇数個か?
+
+		def IsOddQuote(l: string): number # 引用符の個数が奇数個か?
+			return count(substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(str, '.$*~\'), '', 'g'), str) % 2
+		enddef
+
+		is_prev_odd = IsOddQuote(p) # カーソルより前に有る引用符が奇数個か?
+		is_next_odd = IsOddQuote(n) # カーソルより前に有る引用符が奇数個か?
+		if is_prev_odd == is_next_odd
+			return InPair()
+		elseif is_prev_odd
+			return str
+		else
+			return InPair()
+		endif
+	enddef
+
 	if index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
 		return str
 	endif
-	def IsOddQuote(l: string, s: string): number # 引用符の個数が奇数個か?
-		return count(substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\'), '', 'g'), s) % 2
-	enddef
-	var pline: string
-	var nline: string
 	[pline, nline] = SeparateLine()
-	var prevChar = matchstr(pline, '.$')
-	var nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\') .. '\+'))
-	var prevQuote = strlen(matchstr(pline, escape(str, '.$*~\') .. '\+$'))
-	if strlen(matchstr(pline, '\\\+$')) % 2  # 直前が \ でエスケープされている
+	prevChar = matchstr(pline, '.$')
+	nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\') .. '\+'))
+	prevQuote = strlen(matchstr(pline, escape(str, '.$*~\') .. '\+$'))
+	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
+		|| prevChar =~# '\a'                  # 直前が欧文数字
+		|| prevChar =~# '\d'
+		|| prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
 		return str
-	elseif prevQuote >= 2 # 直前が連続する引用符
-		if nextQuote >= prevQuote # 直後の個数が直前の個数以上→カーソル移動
+	elseif (prevQuote > 0 && nextQuote >= prevQuote) # 直前が引用符で、その個数が直後の個数以上
+		return &rightleft ? "\<Left>" : "\<Right>"
+	elseif prevQuote > 3                    # 直前引用符 3 つより多い
+		if nextQuote > 0                        # 次も引用符ならカーソル移動
 			return &rightleft ? "\<Left>" : "\<Right>"
 		endif
-		# 直前/直後の個数が異なるので、直後を直前と同じ個数にして間にカーソル移動
+		return InPairNextPrev(pline, nline)
+	elseif prevQuote >= 2                   # 直前複数引用符
+		# 直後の個数が直前より多い場合は、これより上で済んでいるので、直後を直前と同じ個数にして間にカーソル移動
 		var q: string
 		prevQuote -= nextQuote
 		for i in range(prevQuote)
@@ -147,28 +183,14 @@ def Quote(str: string): string # クォーテーションの入力
 			q ..= rl
 		endfor
 		return q
-	elseif nextQuote >= 1 # 直後がタイプと同じ記号
-		if nextQuote >= prevQuote # 直前/直後が同一個数→カーソル移動
-			return &rightleft ? "\<Left>" : "\<Right>"
-		endif
-		var is_prev_odd = IsOddQuote(pline, str) # カーソルより前に有る引用符が奇数個か?
-		var is_next_odd = IsOddQuote(nline, str) # カーソルより前に有る引用符が奇数個か?
-		if is_prev_odd == is_next_odd
-			return Inpair(str)
-		elseif is_prev_odd
-			return str
-		else
-			return &rightleft ? "\<Left>" : "\<Right>"
-		endif
-	elseif prevChar =~# '\a' || (prevChar =~# '\d') || prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
-		return str
 	endif
-	return Inpair(str)
+	return InPairNextPrev(pline, nline)
 enddef
 
 def CR(): string # 改行の入力
 	var pline: string
 	var nline: string
+
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 && match(pline, escape(k, '.$*~\') .. '$') != -1
@@ -183,6 +205,7 @@ enddef
 def Space(): string # スペースキーの入力
 	var pline: string
 	var nline: string
+
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if get(v, 'space', 0)
@@ -198,8 +221,9 @@ enddef
 def BS(): string # バックスペースの入力
 	var pline: string
 	var nline: string
-	[pline, nline] = SeparateLine()
 	var checkStr: string
+
+	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket) # 括弧自身や内部空白をペアで削除
 		for ft in get(v, 'type', [&filetype])
 			if &filetype != ft
