@@ -7,9 +7,11 @@ export def Init(): void
 		var v = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
 		k = substitute(s2.pair, '|', '<Bar>', 'g')
 		v = substitute(substitute(s2.pair, '''', '''''', 'g'), '|', '\\|', 'g')
 		execute 'inoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
 	enddef
 
 	def SetQuote(s: string): void
@@ -17,6 +19,7 @@ export def Init(): void
 		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
 	enddef
 
 	g:pairbracket = get(g:, 'pairbracket', {
@@ -35,16 +38,25 @@ export def Init(): void
 	for [k, v] in items(g:pairquote)
 		SetQuote(k)
 	endfor
+	inoremap <expr><BS>    <SID>BS()
+	cnoremap <expr><BS>    <SID>BS()
 	inoremap <expr><CR>    <SID>CR()
 	inoremap <expr><Space> <SID>Space()
-	inoremap <expr><BS>    <SID>BS()
+	cnoremap <expr><Space> <SID>Space()
 enddef
 
 def SeparateLine(): list<string> # カーソルより前/後のカーソル行の文字列
-	var column = col('.')
-	var nline = getline('.')
+	var column: number
+	var line: string
 
-	return [strpart(nline, 0, column - 1), strpart(nline, column - 1)]
+	if mode(1) =~# '^c'
+		column = getcmdpos()
+		line = getcmdline()
+	else
+		column = col('.')
+		line = getline('.')
+	endif
+	return [strpart(line, 0, column - 1), strpart(line, column - 1)]
 enddef
 
 def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<number>
@@ -76,16 +88,16 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	var prevMatch: number
 	var nextMatch: number
 	var pairStr: string
+	var move: string
+	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
 
-	if index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
+	if mode(1) =~# '^R' || index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
 		return str
 	endif
 	[pline, nline] = SeparateLine()
 	pairStr = g:pairbracket[str].pair
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr)
 	if prevMatch >= nextMatch
-		var move: string
-		var rl = &rightleft ? "\<Right>" : "\<Left>"
 		for i in range(strcharlen(pairStr))
 			move ..= rl
 		endfor
@@ -102,6 +114,9 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	var nextMatch: number
 	var pairStr: string
 
+	if mode(1) =~# '^R'
+		return str
+	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if str ==# v.pair
@@ -111,14 +126,14 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	endfor
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
-		return &rightleft ? "\<Left>" : "\<Right>"
+		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
 	else
 		return str
 	endif
 enddef
 
 def Quote(str: string): string # クォーテーションの入力
-	var rl = &rightleft ? "\<Right>" : "\<Left>"
+	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
 	var pline: string
 	var nline: string
 	var prevChar: string
@@ -153,7 +168,7 @@ def Quote(str: string): string # クォーテーションの入力
 		endif
 	enddef
 
-	if index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
+	if mode(1) =~# '^R' || index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
 		return str
 	endif
 	[pline, nline] = SeparateLine()
@@ -166,10 +181,10 @@ def Quote(str: string): string # クォーテーションの入力
 		|| prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
 		return str
 	elseif (prevQuote > 0 && nextQuote >= prevQuote) # 直前が引用符で、その個数が直後の個数以上
-		return &rightleft ? "\<Left>" : "\<Right>"
+		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
 	elseif prevQuote > 4                    # 直前引用符 3 つより多い
 		if nextQuote > 0                        # 次も引用符ならカーソル移動
-			return &rightleft ? "\<Left>" : "\<Right>"
+			return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
 		endif
 		return InPairNextPrev(pline, nline)
 	elseif prevQuote >= 2                   # 直前複数引用符
@@ -191,6 +206,9 @@ def CR(): string # 改行の入力
 	var pline: string
 	var nline: string
 
+	if mode(1) =~# '^R'
+		return str
+	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 && match(pline, escape(k, '.$*~\') .. '$') != -1
@@ -206,15 +224,24 @@ def Space(): string # スペースキーの入力
 	var pline: string
 	var nline: string
 
+	if mode(1) =~# '^R'
+		return "\<Space>"
+	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if get(v, 'space', 0)
 			if match(pline, escape(k, '.$*~\') .. '$') != -1 && # カーソル前が開く括弧
 				match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 # カーソル位置が閉じ括弧
-				return "\<Space>\<Space>" .. ( &rightleft ? "\<Right>" : "\<Left>" )
+				return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>" )
 			endif
 		endif
 	endfor
+	# for [q, v] in items(g:pairquote) # 引用符の場合、スペースのペア入力が便利かどうか不明
+	# 	if match(pline, escape(q, '.$*~\') .. '$') != -1 && # カーソル前が引用符
+	# 		match(nline, '^' .. escape(q, '.$*~\')) != -1 # カーソル位置が同じ引用符
+	# 		return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>" )
+	# 	endif
+	# endfor
 	return "\<Space>"
 enddef
 
@@ -223,6 +250,9 @@ def BS(): string # バックスペースの入力
 	var nline: string
 	var checkStr: string
 
+	if mode(1) =~# '^R'
+		return "\<BS>"
+	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket) # 括弧自身や内部空白をペアで削除
 		for ft in get(v, 'type', [&filetype])
@@ -250,14 +280,14 @@ def BS(): string # バックスペースの入力
 			endif
 		endfor
 	endfor
-	for [q, v] in items(g:pairquote) # 引用符削除
+	for [q, v] in items(g:pairquote) # 引用符自身や内部空白をペアで削除
 		checkStr = escape(q, '.$*~\')
 		for ft in get(v, 'type', [&filetype])
 			if &filetype != ft
 				continue
 			endif
-			if match(pline, checkStr .. '$') != -1 && # カーソル前が引用符
-				match(nline, '^' .. checkStr) != -1 # カーソル位置が引用符
+			if (match(pline, checkStr .. '$') != -1 && match(nline, '^' .. checkStr) != -1) # カーソル前後が同じ引用符
+				|| (match(pline, checkStr .. '\s\+$') != -1 && match(nline, '^\s\+' .. checkStr) != -1) # カーソル前後が空白と同じ引用符
 				return "\<BS>\<Del>"
 			endif
 		endfor
