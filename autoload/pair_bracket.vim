@@ -75,7 +75,7 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	var nline: string
 	var prevMatch: number
 	var nextMatch: number
-	var pairStr:string
+	var pairStr: string
 
 	if index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
 		return str
