@@ -167,7 +167,7 @@ def Quote(str: string): string # クォーテーションの入力
 		return str
 	elseif (prevQuote > 0 && nextQuote >= prevQuote) # 直前が引用符で、その個数が直後の個数以上
 		return &rightleft ? "\<Left>" : "\<Right>"
-	elseif prevQuote > 3                    # 直前引用符 3 つより多い
+	elseif prevQuote > 4                    # 直前引用符 3 つより多い
 		if nextQuote > 0                        # 次も引用符ならカーソル移動
 			return &rightleft ? "\<Left>" : "\<Right>"
 		endif
