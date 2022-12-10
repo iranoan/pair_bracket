@@ -7,11 +7,11 @@ export def Init(): void
 		var v = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
-		# execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
 		k = substitute(s2.pair, '|', '<Bar>', 'g')
 		v = substitute(substitute(s2.pair, '''', '''''', 'g'), '|', '\\|', 'g')
 		execute 'inoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
-		# execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
 	enddef
 
 	def SetQuote(s: string): void
@@ -19,7 +19,7 @@ export def Init(): void
 		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
-		# execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
+		execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
 	enddef
 
 	g:pairbracket = get(g:, 'pairbracket', {
@@ -39,10 +39,10 @@ export def Init(): void
 		SetQuote(k)
 	endfor
 	inoremap <expr><BS>    <SID>BS()
-	# cnoremap <expr><BS>    <SID>BS()
+	cnoremap <expr><BS>    <SID>BS()
 	inoremap <expr><CR>    <SID>CR()
 	inoremap <expr><Space> <SID>Space()
-	# cnoremap <expr><Space> <SID>Space()
+	# cnoremap <expr><Space> <SID>Space() :cabbrev の区切りも空白なので、一切使えなくなる
 enddef
 
 def SeparateLine(): list<string> # カーソルより前/後のカーソル行の文字列
