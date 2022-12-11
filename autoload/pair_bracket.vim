@@ -206,7 +206,7 @@ def CR(): string # 改行の入力
 	var pline: string
 	var nline: string
 
-	if mode(1) =~# '^R'
+	if mode(1) =~# '^R' || getcmdwintype() !=# ''
 		return "\<CR>"
 	endif
 	[pline, nline] = SeparateLine()
