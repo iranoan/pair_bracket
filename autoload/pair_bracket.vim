@@ -101,11 +101,13 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
 
 	if mode(1) =~# '^R'
-		|| index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
 		|| (!get(g:pairbracket[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
 	[pline, nline] = SeparateLine()
+	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
+		return str
+	endif
 	pairStr = g:pairbracket[str].pair
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr)
 	if prevMatch >= nextMatch
@@ -138,6 +140,9 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 		endif
 	endfor
 	[pline, nline] = SeparateLine()
+	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
+		return str
+	endif
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
 		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
