@@ -5,29 +5,57 @@ vim9script
 scriptencoding utf-8
 
 export def Init(): void
-	def SetBracket(s1: string, s2: dict<any>): void
-		var k = substitute(s1, '|', '<Bar>', 'g')
-		var v = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
+	var type_map: dict<list<string>>
+	var c_flag: number
 
-		execute 'inoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
-		if get(s2, 'cmap', 1)
-			execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
-		endif
-		k = substitute(s2.pair, '|', '<Bar>', 'g')
-		v = substitute(substitute(s2.pair, '''', '''''', 'g'), '|', '\\|', 'g')
-		execute 'inoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
-		if get(s2, 'cmap', 1)
-			execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
+	def SetMap(lhs: string, rhs: string, f: string, b: string): void
+		execute 'inoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
+		if c_flag
+			execute 'cnoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
 		endif
 	enddef
 
-	def SetQuote(s1: string, s2: dict<any>): void
-		var k = substitute(s1, '|', '<Bar>', 'g')
-		var q = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
+	def SetAuCmdMap(lhs: string, rhs: string, f: string, d: dict<any>): void
+		var ftypes = join(d.type, ',')
 
-		execute 'inoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
-		if get(s2, 'cmap', 1)
-			execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
+		if !has_key(type_map, ftypes)
+			type_map[ftypes] = []
+		endif
+		if index(d.type, &filetype) != -1
+			SetMap(lhs, rhs, f, '<buffer>')
+		endif
+		add(type_map[ftypes], ' inoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
+		if get(d, 'cmap', 1)
+			add(type_map[ftypes], ' cnoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
+		endif
+	enddef
+
+	def SetBracket(s: string, d: dict<any>): void
+		var k = substitute(s, '|', '<Bar>', 'g')
+		var v = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
+
+		c_flag = get(d, 'cmap', 1)
+		if has_key(d, 'type')
+			SetAuCmdMap(k, v, 'InputBra', d)
+			k = substitute(d.pair, '|', '<Bar>', 'g')
+			v = substitute(substitute(d.pair, '''', '''''', 'g'), '|', '\\|', 'g')
+			SetAuCmdMap(k, v, 'InputCket', d)
+		else
+			SetMap(k, v, 'InputBra', '')
+			k = substitute(d.pair, '|', '<Bar>', 'g')
+			v = substitute(substitute(d.pair, '''', '''''', 'g'), '|', '\\|', 'g')
+			SetMap(k, v, 'InputCket', '')
+		endif
+	enddef
+
+	def SetQuote(s: string, d: dict<any>): void
+		var k = substitute(s, '|', '<Bar>', 'g')
+		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
+
+		if has_key(d, 'type')
+			SetAuCmdMap(k, q, 'Quote', d)
+		else
+			SetMap(k, q, 'Quote', '')
 		endif
 	enddef
 
@@ -47,11 +75,21 @@ export def Init(): void
 	for [k, v] in items(g:pairquote)
 		SetQuote(k, v)
 	endfor
-	inoremap <expr><BS>    <SID>BS()
-	cnoremap <expr><BS>    <SID>BS()
-	inoremap <expr><CR>    <SID>CR()
-	inoremap <expr><Space> <SID>Space()
-	# cnoremap <expr><Space> <SID>Space() :cabbrev の区切りも空白なので、一切使えなくなる
+	if !empty(type_map)
+		augroup PairBracket
+			autocmd!
+			for [k, v] in items(type_map)
+				for m in v
+					execute 'autocmd FileType ' .. k .. m
+				endfor
+			endfor
+		augroup END
+	endif
+	inoremap <expr> <BS>    <SID>BS()
+	cnoremap <expr> <BS>    <SID>BS()
+	inoremap <expr> <CR>    <SID>CR()
+	inoremap <expr> <Space> <SID>Space()
+	# cnoremap <expr> <Space> <SID>Space() :cabbrev の区切りも空白なので、一切使えなくなる
 enddef
 
 def SeparateLine(): list<string> # カーソルより前/後のカーソル行の文字列
@@ -188,7 +226,6 @@ def Quote(str: string): string # クォーテーションの入力
 	enddef
 
 	if mode(1) =~# '^R'
-		|| index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
 		|| (!get(g:pairquote[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
