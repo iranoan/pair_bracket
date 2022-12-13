@@ -126,16 +126,18 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	var pairStr: string
 
 	if mode(1) =~# '^R'
-		|| (!get(g:pairbracket[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
-	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if str ==# v.pair
+			if !get(g:pairbracket[k], 'cmap', 1) && getcmdwintype() !=# ''
+				return str
+			endif
 			pairStr = k
 			break
 		endif
 	endfor
+	[pline, nline] = SeparateLine()
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
 		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
