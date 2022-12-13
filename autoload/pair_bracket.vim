@@ -1,4 +1,7 @@
 vim9script
+# Author:  Iranoan <iranoan+vim@gmail.com>
+# License: GPL Ver.3.
+
 scriptencoding utf-8
 
 export def Init(): void
@@ -7,19 +10,25 @@ export def Init(): void
 		var v = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
-		execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
+		if get(s2, 'cmap', 1)
+			execute 'cnoremap <expr>' .. k .. ' <SID>InputBra(''' .. v .. ''')'
+		endif
 		k = substitute(s2.pair, '|', '<Bar>', 'g')
 		v = substitute(substitute(s2.pair, '''', '''''', 'g'), '|', '\\|', 'g')
 		execute 'inoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
-		execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
+		if get(s2, 'cmap', 1)
+			execute 'cnoremap <expr>' .. k .. ' <SID>InputCket(''' .. v .. ''')'
+		endif
 	enddef
 
-	def SetQuote(s: string): void
-		var k = substitute(s, '|', '<Bar>', 'g')
-		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
+	def SetQuote(s1: string, s2: dict<any>): void
+		var k = substitute(s1, '|', '<Bar>', 'g')
+		var q = substitute(substitute(s1, '''', '''''', 'g'), '|', '\\|', 'g')
 
 		execute 'inoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
-		execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
+		if get(s2, 'cmap', 1)
+			execute 'cnoremap <expr>' .. k .. ' <SID>Quote(''' .. q .. ''')'
+		endif
 	enddef
 
 	g:pairbracket = get(g:, 'pairbracket', {
@@ -36,7 +45,7 @@ export def Init(): void
 		SetBracket(k, v)
 	endfor
 	for [k, v] in items(g:pairquote)
-		SetQuote(k)
+		SetQuote(k, v)
 	endfor
 	inoremap <expr><BS>    <SID>BS()
 	cnoremap <expr><BS>    <SID>BS()
@@ -91,7 +100,9 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	var move: string
 	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
 
-	if mode(1) =~# '^R' || index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
+	if mode(1) =~# '^R'
+		|| index(get(g:pairbracket[str], 'type', [&filetype]), &filetype) == -1
+		|| (!get(g:pairbracket[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
 	[pline, nline] = SeparateLine()
@@ -115,6 +126,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	var pairStr: string
 
 	if mode(1) =~# '^R'
+		|| (!get(g:pairbracket[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
 	[pline, nline] = SeparateLine()
@@ -168,7 +180,9 @@ def Quote(str: string): string # クォーテーションの入力
 		endif
 	enddef
 
-	if mode(1) =~# '^R' || index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
+	if mode(1) =~# '^R'
+		|| index(get(g:pairquote[str], 'type', [&filetype]), &filetype) == -1
+		|| (!get(g:pairquote[str], 'cmap', 1) && getcmdwintype() !=# '')
 		return str
 	endif
 	[pline, nline] = SeparateLine()
