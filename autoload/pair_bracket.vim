@@ -8,54 +8,48 @@ export def Init(): void
 	var type_map: dict<list<string>>
 	var c_flag: number
 
-	def SetMap(lhs: string, rhs: string, f: string, b: string): void
+	def SetMap(s: string, f: string, b: string): void # 全て、もしくはバッファにキーマップ
+		var lhs = substitute(s, '|', '<Bar>', 'g')
+		var rhs = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
 		execute 'inoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
 		if c_flag
 			execute 'cnoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
 		endif
 	enddef
 
-	def SetAuCmdMap(lhs: string, rhs: string, f: string, d: dict<any>): void
+	def SetAuCmdMap(s: string, f: string, d: dict<any>): void # FileType 様にキーマップを辞書に追加
+		var lhs = substitute(s, '|', '<Bar>', 'g')
+		var rhs = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
 		var ftypes = join(d.type, ',')
-
+		if index(d.type, &filetype) != -1 # カレント・バッファに対するキーマップ
+			SetMap(s, f, '<buffer>')
+		endif
 		if !has_key(type_map, ftypes)
 			type_map[ftypes] = []
 		endif
-		if index(d.type, &filetype) != -1
-			SetMap(lhs, rhs, f, '<buffer>')
-		endif
 		add(type_map[ftypes], ' inoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
-		if get(d, 'cmap', 1)
+		if c_flag
 			add(type_map[ftypes], ' cnoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
 		endif
 	enddef
 
 	def SetBracket(s: string, d: dict<any>): void
-		var k = substitute(s, '|', '<Bar>', 'g')
-		var v = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
-
 		c_flag = get(d, 'cmap', 1)
 		if has_key(d, 'type')
-			SetAuCmdMap(k, v, 'InputBra', d)
-			k = substitute(d.pair, '|', '<Bar>', 'g')
-			v = substitute(substitute(d.pair, '''', '''''', 'g'), '|', '\\|', 'g')
-			SetAuCmdMap(k, v, 'InputCket', d)
+			SetAuCmdMap(s, 'InputBra', d)
+			SetAuCmdMap(d.pair, 'InputCket', d)
 		else
-			SetMap(k, v, 'InputBra', '')
-			k = substitute(d.pair, '|', '<Bar>', 'g')
-			v = substitute(substitute(d.pair, '''', '''''', 'g'), '|', '\\|', 'g')
-			SetMap(k, v, 'InputCket', '')
+			SetMap(s, 'InputBra', '')
+			SetMap(d.pair, 'InputCket', '')
 		endif
 	enddef
 
 	def SetQuote(s: string, d: dict<any>): void
-		var k = substitute(s, '|', '<Bar>', 'g')
-		var q = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
-
+		c_flag = get(d, 'cmap', 1)
 		if has_key(d, 'type')
-			SetAuCmdMap(k, q, 'Quote', d)
+			SetAuCmdMap(s, 'Quote', d)
 		else
-			SetMap(k, q, 'Quote', '')
+			SetMap(s, 'Quote', '')
 		endif
 	enddef
 
