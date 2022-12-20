@@ -7,12 +7,13 @@ scriptencoding utf-8
 export def Init(): void
 	var type_map: dict<list<string>>
 	var c_flag: number
+	var s_flag: bool
 
 	def SetMap(s: string, f: string, b: string): void # 全て、もしくはバッファにキーマップ
 		var lhs = substitute(s, '|', '<Bar>', 'g')
 		var rhs = substitute(substitute(s, '''', '''''', 'g'), '|', '\\|', 'g')
 		execute 'inoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
-		if c_flag
+		if c_flag || s_flag
 			execute 'cnoremap ' .. b .. '<expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')'
 		endif
 	enddef
@@ -28,13 +29,14 @@ export def Init(): void
 			type_map[ftypes] = []
 		endif
 		add(type_map[ftypes], ' inoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
-		if c_flag
+		if c_flag || s_flag
 			add(type_map[ftypes], ' cnoremap <buffer><expr> ' .. lhs .. ' <SID>' .. f .. '(''' .. rhs .. ''')')
 		endif
 	enddef
 
 	def SetBracket(s: string, d: dict<any>): void
 		c_flag = get(d, 'cmap', 1)
+		s_flag = (get(d, 'search', {}) != {})
 		if has_key(d, 'type')
 			SetAuCmdMap(s, 'InputBra', d)
 			SetAuCmdMap(d.pair, 'InputCket', d)
@@ -54,13 +56,16 @@ export def Init(): void
 	enddef
 
 	g:pairbracket = get(g:, 'pairbracket', {
-		'{': {'pair': '}', 'space': 1},
-		'[': {'pair': ']', 'space': 1},
-		'(': {'pair': ')', 'space': 1}
+		'(': {'pair': ')', 'space': 1, 'escape': {'vim': 1},
+			'search': {'v\': 0, '\': 2, 'v': 1, '_': 0}},
+		'[': {'pair': ']', 'space': 1, 'escape': {'vim': 1},
+			'search': {'v\': 0, '\': 0, 'v': 1, '_': 1}},
+		'{': {'pair': '}', 'space': 1, 'escape': {'vim': 1},
+			'search': {'v\': 0, '\': 1, 'v': 1, '_': 0}},
 		})
 	g:pairquote = get(g:, 'pairquote', {
-		'''': {},
 		'"': {},
+		'''': {},
 		'`': {}
 		})
 	for [k, v] in items(g:pairbracket)
@@ -101,7 +106,7 @@ def SeparateLine(): list<string> # カーソルより前/後のカーソル行�
 enddef
 
 def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<number>
-	# 未対応の開き括弧の数
+	# 未対応の括弧の数
 	var cket_pos: number
 	var bra_pos: number
 	var pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
@@ -123,24 +128,61 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<
 		count(nline, cket) - count(nline, bra)] # カーソルより後に有る対応する括弧のない閉じ括弧の数
 enddef
 
+def GetMode(s: string, d: dict<any>): number # 検索モード、通常のコマンドライン、入力モードのペア括弧の入力方法を返す
+	var escape: number    # ペア括弧の入力方法
+
+	def Search(): number
+		if match(s, '\\v') == -1
+			if escape
+				return get(d, 'search', {'\': 0})['\']
+			else
+				return get(d, 'search', {'_': 0})['_']
+			endif
+		else
+			if escape
+				return get(d, 'search', {'v\': 0})['v\']
+			else
+				return get(d, 'search', {'v': 0})['v']
+			endif
+		endif
+	enddef
+
+	if strlen(matchstr(s, '\\\+$')) % 2 # 直前が \ でエスケープされている
+		escape = 1
+	endif
+	if getcmdtype() =~# '[/?]' || getcmdwintype() =~# '/?:'
+		return Search()
+	elseif escape
+		return get(d, 'escape', )->get(&filetype, 0)
+	else # 検索モードでもなくエスケープもされていない
+		return 1 # 標準のペア入力
+	endif
+enddef
+
 def InputBra(str: string): string # 括弧などをペアで入力
-	var pline: string
-	var nline: string
-	var prevMatch: number
-	var nextMatch: number
-	var pairStr: string
-	var move: string
+	var pline: string     # カーソル前の内容
+	var nline: string     # カーソル後の内容
+	var prevMatch: number # カーソル前だけで対応する閉じ括弧のない開き括弧の数
+	var nextMatch: number # カーソル後だけで対応する開き括弧のない閉じ括弧の数
+	var pairStr: string   # 対応する閉じ括弧
+	var move: string      # 入力後のカーソル移動を示すキー
+	var pair_dic: dict<any> = g:pairbracket[str] # 開き括弧に関わる各種情報辞書
+	var escape: number    # ペア括弧の入力方法
 	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
 
 	if mode(1) =~# '^R'
-		|| (!get(g:pairbracket[str], 'cmap', 1) && getcmdwintype() !=# '')
+		|| (!get(pair_dic, 'cmap', 1) && (getcmdtype() ==# ':' || getcmdwintype() ==# ':'))
 		return str
 	endif
 	[pline, nline] = SeparateLine()
-	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
+	escape = GetMode(pline, pair_dic)
+	if escape == 2
+		pairStr = '\' .. pair_dic.pair
+	elseif escape
+		pairStr = pair_dic.pair
+	else
 		return str
 	endif
-	pairStr = g:pairbracket[str].pair
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr)
 	if prevMatch >= nextMatch
 		for i in range(strcharlen(pairStr))
@@ -190,6 +232,7 @@ def Quote(str: string): string # クォーテーションの入力
 	var prevChar: string
 	var nextQuote: number
 	var prevQuote: number
+	var pair_dic: dict<any> = g:pairquote[str]
 
 	def InPair(): string
 		var ret = str .. str
@@ -220,7 +263,8 @@ def Quote(str: string): string # クォーテーションの入力
 	enddef
 
 	if mode(1) =~# '^R'
-		|| (!get(g:pairquote[str], 'cmap', 1) && getcmdwintype() !=# '')
+		|| (!get(pair_dic, 'cmap', 1) && (getcmdtype() ==# ':' || getcmdwintype() ==# ':'))
+		|| (!get(pair_dic, 'search', 0) && getcmdtype() =~# '[/?]' || getcmdwintype() =~# '/?:')
 		return str
 	endif
 	[pline, nline] = SeparateLine()
@@ -302,6 +346,17 @@ def BS(): string # バックスペースの入力
 	var nline: string
 	var checkStr: string
 
+	def DeleteKey(b: string, c: string): string # <BS>と<Del>の組み合わせを生成
+		var ret: string
+		for i in range(strcharlen(b))
+			ret ..= "\<BS>"
+		endfor
+		for i in range(strcharlen(c))
+			ret ..= "\<Del>"
+		endfor
+		return ret
+	enddef
+
 	if mode(1) =~# '^R'
 		return "\<BS>"
 	endif
@@ -311,24 +366,25 @@ def BS(): string # バックスペースの入力
 			if &filetype != ft
 				continue
 			endif
-			# ペアの括弧
-			checkStr = v.pair
-			if match(pline, escape(k, '.$*~\') .. '$') != -1 && # カーソル前が開く括弧
-				match(nline, '^' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置が閉じ括弧
-				var ret: string
-				for i in range(strcharlen(k))
-					ret ..= "\<BS>"
-				endfor
-				for i in range(strcharlen(checkStr))
-					ret ..= "\<Del>"
-				endfor
-				return ret
+			if match(pline, escape(k, '.$*~\') .. '$') == -1 # カーソル前が開く括弧ではない
+				continue
 			endif
-			if get(v, 'space', 0) # ペアの空白
-				if match(pline, escape(k, '.$*~\') .. '\s\+$') != -1 && # カーソル前が開く括弧とスペース
-					match(nline, '^\s\+' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置がスペースと閉じ括弧
-					return "\<BS>\<Del>"
+			checkStr = v.pair # ペアの括弧
+			if match(nline, '^\\' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置が \ + 閉じ括弧
+				var escape: number = GetMode(pline[ : - strlen(k) - 1], v)
+				if escape == 2 # TeX の \[ \] や検索の正規表現 \( \) など
+					return DeleteKey(k, '\' .. checkStr)
+				elseif escape
+					return DeleteKey(k, checkStr)
+				else
+					return "\<BS>"
 				endif
+			elseif match(nline, '^' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置が閉じ括弧
+				return DeleteKey(k, checkStr)
+			elseif get(v, 'space', 0) # ペアの空白も削除対象
+				&& match(pline, escape(k, '.$*~\') .. '\s\+$') != -1 # カーソル前が開く括弧とスペース
+				&& match(nline, '^\s\+' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置がスペースと閉じ括弧
+				return "\<BS>\<Del>"
 			endif
 		endfor
 	endfor
