@@ -109,22 +109,8 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string, dic: d
 	# 未対応の括弧の数
 	var cket_pos: number
 	var bra_pos: number
-	var pline: string
-	var nline: string
-	var escape_c: string
-
-	if getcmdtype() ==# ':' || getcmdwintype() ==# ':'
-		escape_c = get(dic, 'escape_char', {'vim': '\'})['vim']
-	else
-		escape_c = get(dic, 'escape_char', {})->get(&filetype, '\')
-	endif
-	if escape_c ==# '\'
-		pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
-		nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. escape(cket, '.$*~\'), '', 'g')
-	else
-		pline = substitute(substitute(line1, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. bra, '.$*~\'), '', 'g')
-		nline = substitute(substitute(line2, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. cket, '.$*~\'), '', 'g')
-	endif
+	var pline: string = DeleteEscaped(line1, bra, dic)
+	var nline: string = DeleteEscaped(line2, cket, dic)
 
 	while true # 開き括弧より前に有る閉じ括弧を除く
 		cket_pos = stridx(pline, cket)
@@ -140,6 +126,21 @@ def MatchBraCket(line1: string, line2: string, bra: string, cket: string, dic: d
 	endwhile
 	return [count(pline, bra) - count(pline, cket), # カーソルより前に有る対応する括弧のない開き括弧の数
 		count(nline, cket) - count(nline, bra)] # カーソルより後に有る対応する括弧のない閉じ括弧の数
+enddef
+
+def DeleteEscaped(l: string, s: string, dic: dict<any>): string
+	var escape_c: string
+
+	if getcmdtype() ==# ':' || getcmdwintype() ==# ':'
+		escape_c = get(dic, 'escape_char', {'vim': '\'})['vim']
+	else
+		escape_c = get(dic, 'escape_char', {})->get(&filetype, '\')
+	endif
+	if escape_c ==# '\'
+		return substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\'), '', 'g')
+	else
+		return substitute(substitute(l, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. s, '.$*~\'), '', 'g')
+	endif
 enddef
 
 def GetMode(s: string, d: dict<any>): number # 検索モード、通常のコマンドライン、入力モードのペア括弧の入力方法を返す
@@ -262,7 +263,7 @@ def Quote(str: string): string # クォーテーションの入力
 		var is_next_odd: number # カーソルより前に有る引用符が奇数個か?
 
 		def IsOddQuote(l: string): number # 引用符の個数が奇数個か?
-			return count(substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(str, '.$*~\'), '', 'g'), str) % 2
+			return count(DeleteEscaped(l, str, pair_dic), str) % 2
 		enddef
 
 		is_prev_odd = IsOddQuote(p) # カーソルより前に有る引用符が奇数個か?
