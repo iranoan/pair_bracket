@@ -258,13 +258,13 @@ def Quote(str: string): string # クォーテーションの入力
 		return ret
 	enddef
 
+	def IsOddQuote(l: string): number # 引用符の個数が奇数個か?
+		return count(DeleteEscaped(l, str, pair_dic), str) % 2
+	enddef
+
 	def InPairNextPrev(p: string, n: string): string # 直前/直後に限らずカーソルより前 (p)/後 (n) の引用記号個数に応じて、ペア入力か否かを変える
 		var is_prev_odd: number # カーソルより前に有る引用符が奇数個か?
 		var is_next_odd: number # カーソルより前に有る引用符が奇数個か?
-
-		def IsOddQuote(l: string): number # 引用符の個数が奇数個か?
-			return count(DeleteEscaped(l, str, pair_dic), str) % 2
-		enddef
 
 		is_prev_odd = IsOddQuote(p) # カーソルより前に有る引用符が奇数個か?
 		is_next_odd = IsOddQuote(n) # カーソルより前に有る引用符が奇数個か?
@@ -299,6 +299,9 @@ def Quote(str: string): string # クォーテーションの入力
 		endif
 		return InPairNextPrev(pline, nline)
 	elseif prevQuote >= 2                   # 直前複数引用符
+		if IsOddQuote(pline) && !IsOddQuote(nline)
+			return str
+		endif
 		# 直後の個数が直前より多い場合は、これより上で済んでいるので、直後を直前と同じ個数にして間にカーソル移動
 		var q: string
 		prevQuote -= nextQuote
