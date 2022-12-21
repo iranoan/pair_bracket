@@ -65,7 +65,7 @@ export def Init(): void
 		})
 	g:pairquote = get(g:, 'pairquote', {
 		'"': {},
-		'''': {},
+		"'": {'escape_char': {'vim': "'"}},
 		'`': {}
 		})
 	for [k, v] in items(g:pairbracket)
@@ -105,12 +105,26 @@ def SeparateLine(): list<string> # カーソルより前/後のカーソル行�
 	return [strpart(line, 0, column - 1), strpart(line, column - 1)]
 enddef
 
-def MatchBraCket(line1: string, line2: string, bra: string, cket: string): list<number>
+def MatchBraCket(line1: string, line2: string, bra: string, cket: string, dic: dict<any>): list<number>
 	# 未対応の括弧の数
 	var cket_pos: number
 	var bra_pos: number
-	var pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
-	var nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. escape(cket, '.$*~\'), '', 'g')
+	var pline: string
+	var nline: string
+	var escape_c: string
+
+	if getcmdtype() ==# ':' || getcmdwintype() ==# ':'
+		escape_c = get(dic, 'escape_char', {'vim': '\'})['vim']
+	else
+		escape_c = get(dic, 'escape_char', {})->get(&filetype, '\')
+	endif
+	if escape_c ==# '\'
+		pline = substitute(substitute(line1, '\\\\', '', 'g'), '\\' .. escape(bra, '.$*~\'), '', 'g')
+		nline = substitute(substitute(line2, '\\\\', '', 'g'), '\\' .. escape(cket, '.$*~\'), '', 'g')
+	else
+		pline = substitute(substitute(line1, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. bra, '.$*~\'), '', 'g')
+		nline = substitute(substitute(line2, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. cket, '.$*~\'), '', 'g')
+	endif
 
 	while true # 開き括弧より前に有る閉じ括弧を除く
 		cket_pos = stridx(pline, cket)
@@ -183,7 +197,7 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	else
 		return str
 	endif
-	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr)
+	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr, pair_dic)
 	if prevMatch >= nextMatch
 		for i in range(strcharlen(pairStr))
 			move ..= rl
@@ -217,7 +231,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
 		return str
 	endif
-	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str)
+	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str, pair_dic)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
 		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
 	else
