@@ -215,6 +215,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	var prevMatch: number
 	var nextMatch: number
 	var pairStr: string
+	var pair_dic: dict<any>
 
 	if mode(1) =~# '^R'
 		return str
@@ -225,6 +226,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 				return str
 			endif
 			pairStr = k
+			pair_dic = v.pair
 			break
 		endif
 	endfor
