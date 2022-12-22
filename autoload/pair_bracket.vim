@@ -92,7 +92,7 @@ export def Init(): void
 	defcompile # これがないと最初に使われるのがコマンドラインの時に無駄な改行 (echo '' のような振る舞い) が発生する
 enddef
 
-def SeparateLine(): list<string> # カーソルより前/後のカーソル行の文字列
+def SeparateLine(): list<string> # カーソル行のカーソルより前/後の文字列
 	var column: number
 	var line: string
 
