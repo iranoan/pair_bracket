@@ -226,7 +226,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 				return str
 			endif
 			pairStr = k
-			pair_dic = v.pair
+			pair_dic = v
 			break
 		endif
 	endfor
