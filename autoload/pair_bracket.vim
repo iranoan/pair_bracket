@@ -169,7 +169,7 @@ def GetMode(s: string, d: dict<any>): number # 検索モード、通常のコマ
 	if getcmdtype() =~# '[/?]' || getcmdwintype() =~# '[/?]'
 		return Search()
 	elseif escape
-		return get(d, 'escape', )->get(&filetype, 0)
+		return get(d, 'escape', {})->get(&filetype, 0)
 	else # 検索モードでもなくエスケープもされていない
 		return 1 # 標準のペア入力
 	endif
