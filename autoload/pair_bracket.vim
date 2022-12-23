@@ -166,7 +166,7 @@ def GetMode(s: string, d: dict<any>): number # 検索モード、通常のコマ
 	if strlen(matchstr(s, '\\\+$')) % 2 # 直前が \ でエスケープされている
 		escape = 1
 	endif
-	if getcmdtype() =~# '[/?]' || getcmdwintype() =~# '/?:'
+	if getcmdtype() =~# '[/?]' || getcmdwintype() =~# '[/?]'
 		return Search()
 	elseif escape
 		return get(d, 'escape', )->get(&filetype, 0)
