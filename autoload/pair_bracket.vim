@@ -184,7 +184,7 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	var move: string      # 入力後のカーソル移動を示すキー
 	var pair_dic: dict<any> = g:pairbracket[str] # 開き括弧に関わる各種情報辞書
 	var escape: number    # ペア括弧の入力方法
-	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
+	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Right>" : "\<C-g>U\<Left>"
 
 	if mode(1) =~# '^R'
 		|| (!get(pair_dic, 'cmap', 1) && (getcmdtype() ==# ':' || getcmdwintype() ==# ':'))
@@ -237,14 +237,14 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 	endif
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str, pair_dic)
 	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
-		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
+		return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
 	else
 		return str
 	endif
 enddef
 
 def Quote(str: string): string # クォーテーションの入力
-	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>"
+	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Right>" : "\<C-g>U\<Left>"
 	var pline: string
 	var nline: string
 	var prevChar: string
@@ -295,10 +295,10 @@ def Quote(str: string): string # クォーテーションの入力
 		|| prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
 		return str
 	elseif (prevQuote > 0 && nextQuote >= prevQuote) # 直前が引用符で、その個数が直後の個数以上
-		return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
+		return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
 	elseif prevQuote > 4                    # 直前引用符 3 つより多い
 		if nextQuote > 0                        # 次も引用符ならカーソル移動
-			return (mode(1) !~# '^c' && &rightleft) ? "\<Left>" : "\<Right>"
+			return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
 		endif
 		return InPairNextPrev(pline, nline)
 	elseif prevQuote >= 2                   # 直前複数引用符
@@ -349,14 +349,14 @@ def Space(): string # スペースキーの入力
 		if get(v, 'space', 0)
 			if match(pline, escape(k, '.$*~\') .. '$') != -1 && # カーソル前が開く括弧
 				match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 # カーソル位置が閉じ括弧
-				return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>" )
+				return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Right>" : "\<C-g>U\<Left>" )
 			endif
 		endif
 	endfor
 	# for [q, v] in items(g:pairquote) # 引用符の場合、スペースのペア入力が便利かどうか不明
 	# 	if match(pline, escape(q, '.$*~\') .. '$') != -1 && # カーソル前が引用符
 	# 		match(nline, '^' .. escape(q, '.$*~\')) != -1 # カーソル位置が同じ引用符
-	# 		return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<Right>" : "\<Left>" )
+	# 		return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U" "\<Right>" : "\<C-g>U" "\<Left>" )
 	# 	endif
 	# endfor
 	return "\<Space>"
