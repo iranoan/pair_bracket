@@ -4,6 +4,13 @@ vim9script
 
 scriptencoding utf-8
 
+var BackCursor = (): string => # カーソルを戻す (閉じ括弧入力後に間に入れるときなど)
+	mode(1) =~# '^c' ? "\<Left>" :
+	&rightleft ? "\<C-G>U\<Right>" : "\<C-G>U\<Left>"
+var ForwardCursor = (): string => # カーソルを進める (閉じ括弧のタイプですでにその閉じ括弧が有った時など)
+	mode(1) =~# '^c' ? "\<Right>" :
+	&rightleft ? "\<C-G>U\<Left>" : "\<C-G>U\<Right>"
+
 export def Init(): void
 	var type_map: dict<list<string>>
 	var c_flag: number
@@ -138,17 +145,17 @@ def DeleteEscaped(l: string, s: string, dic: dict<any>): string
 		escape_c = get(dic, 'escape_char', {})->get(&filetype, '\')
 	endif
 	if escape_c ==# '\'
-		return substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\'), '', 'g')
+		return substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\[]'), '', 'g')
 	else
-		return substitute(substitute(l, escape(escape_c .. escape_c, '.$*~\'), '', 'g'), escape(escape_c .. s, '.$*~\'), '', 'g')
+		return substitute(substitute(l, escape(escape_c .. escape_c, '.$*~\[]'), '', 'g'), escape(escape_c .. s, '.$*~\[]'), '', 'g')
 	endif
 enddef
 
 def GetMode(s: string, d: dict<any>): number # 検索モード、通常のコマンドライン、入力モードのペア括弧の入力方法を返す
-	var escape: number    # ペア括弧の入力方法
+	var escape: bool = (strlen(matchstr(s, '\\\+$')) % 2 == 1) # 直前が \ でエスケープされている
 
-	def Search(): number
-		if match(s, '\\v') == -1
+	def Search(str: string): number
+		if match(str, '\\v') == -1
 			if escape
 				return get(d, 'search', {'\': 0})['\']
 			else
@@ -202,7 +209,7 @@ def InputBra(str: string): string # 括弧などをペアで入力
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, str, pairStr, pair_dic)
 	if prevMatch >= nextMatch
 		for i in range(strcharlen(pairStr))
-			move ..= rl
+			move ..= BackCursor()
 		endfor
 		return str .. pairStr .. move
 	else
@@ -236,15 +243,14 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 		return str
 	endif
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str, pair_dic)
-	if match(nline, '^' .. escape(str, '.$*~\')) !=# -1 && prevMatch <= nextMatch
-		return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
+	if match(nline, '^' .. escape(str, '.$*~\[]')) !=# -1 && prevMatch <= nextMatch
+		return ForwardCursor()
 	else
 		return str
 	endif
 enddef
 
 def Quote(str: string): string # クォーテーションの入力
-	var rl = (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Right>" : "\<C-g>U\<Left>"
 	var pline: string
 	var nline: string
 	var prevChar: string
@@ -252,11 +258,11 @@ def Quote(str: string): string # クォーテーションの入力
 	var prevQuote: number
 	var pair_dic: dict<any> = g:pairquote[str]
 
-	def InPair(): string
+	def InPair(): string # ペアとなる引用符のを入力し間にカーソル移動
 		var ret = str .. str
 
 		for i in range(strcharlen(str))
-			ret ..= rl
+			ret ..= BackCursor()
 		endfor
 		return ret
 	enddef
@@ -287,18 +293,18 @@ def Quote(str: string): string # クォーテーションの入力
 	endif
 	[pline, nline] = SeparateLine()
 	prevChar = matchstr(pline, '.$')
-	nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\') .. '\+'))
-	prevQuote = strlen(matchstr(pline, escape(str, '.$*~\') .. '\+$'))
+	nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\[]') .. '\+'))
+	prevQuote = strlen(matchstr(pline, escape(str, '.$*~\[]') .. '\+$'))
 	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
 		|| prevChar =~# '\a'                  # 直前が欧文数字
 		|| prevChar =~# '\d'
 		|| prevChar =~# '[À-öø-ƿǄ-ʯͲͳͶͷͻ-ͽͲͳͶͷͻ-ͽΌΎ-ΡΣ-ҁҊ-Ֆՠ-ֈא-ת]'
 		return str
 	elseif (prevQuote > 0 && nextQuote >= prevQuote) # 直前が引用符で、その個数が直後の個数以上
-		return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
-	elseif prevQuote > 4                    # 直前引用符 3 つより多い
+		return ForwardCursor()
+	elseif prevQuote > 4                    # 直前引用符 4 つより多い
 		if nextQuote > 0                        # 次も引用符ならカーソル移動
-			return (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Left>" : "\<C-g>U\<Right>"
+			return ForwardCursor()
 		endif
 		return InPairNextPrev(pline, nline)
 	elseif prevQuote >= 2                   # 直前複数引用符
@@ -312,7 +318,7 @@ def Quote(str: string): string # クォーテーションの入力
 			q ..= str
 		endfor
 		for i in range(prevQuote)
-			q ..= rl
+			q ..= BackCursor()
 		endfor
 		return q
 	endif
@@ -328,9 +334,10 @@ def CR(): string # 改行の入力
 	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
-		if match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 && match(pline, escape(k, '.$*~\') .. '$') != -1
+		if match(nline, '^' .. escape(v.pair, '.$*~\[]')) != -1 && match(pline, escape(k, '.$*~\[]') .. '$') != -1
 			# return "\<CR>\<Esc>\<S-o>"
 			# ↓だと↑より /**/ 中の改行で行頭に * が付きにくい
+			# :undojoin で一纏めにできる?
 			return "\<CR>\<Esc>ko"
 		endif
 	endfor
@@ -347,16 +354,16 @@ def Space(): string # スペースキーの入力
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if get(v, 'space', 0)
-			if match(pline, escape(k, '.$*~\') .. '$') != -1 && # カーソル前が開く括弧
-				match(nline, '^' .. escape(v.pair, '.$*~\')) != -1 # カーソル位置が閉じ括弧
-				return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U\<Right>" : "\<C-g>U\<Left>" )
+			if match(pline, escape(k, '.$*~\[]') .. '$') != -1 && # カーソル前が開く括弧
+				match(nline, '^' .. escape(v.pair, '.$*~\[]')) != -1 # カーソル位置が閉じ括弧
+				return "\<Space>\<Space>" .. BackCursor()
 			endif
 		endif
 	endfor
 	# for [q, v] in items(g:pairquote) # 引用符の場合、スペースのペア入力が便利かどうか不明
-	# 	if match(pline, escape(q, '.$*~\') .. '$') != -1 && # カーソル前が引用符
-	# 		match(nline, '^' .. escape(q, '.$*~\')) != -1 # カーソル位置が同じ引用符
-	# 		return "\<Space>\<Space>" .. ( (mode(1) !~# '^c' && &rightleft) ? "\<C-g>U" "\<Right>" : "\<C-g>U" "\<Left>" )
+	# 	if match(pline, escape(q, '.$*~\[]') .. '$') != -1 && # カーソル前が引用符
+	# 		match(nline, '^' .. escape(q, '.$*~\[]')) != -1 # カーソル位置が同じ引用符
+	# 		return "\<Space>\<Space>" .. BackCursor()
 	# 	endif
 	# endfor
 	return "\<Space>"
@@ -387,12 +394,12 @@ def BS(): string # バックスペースの入力
 			if &filetype != ft
 				continue
 			endif
-			if match(pline, escape(k, '.$*~\') .. '$') == -1 # カーソル前が開く括弧ではない
+			if match(pline, escape(k, '.$*~\[]') .. '$') == -1 # カーソル前が開く括弧ではない
 				continue
 			endif
 			checkStr = v.pair # ペアの括弧
-			if match(nline, '^\\' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置が \ + 閉じ括弧
-				var escape: number = GetMode(pline[ : - strlen(k) - 1], v)
+			if match(nline, '^\\' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置が \ + 閉じ括弧
+				var escape: number = GetMode(strpart(pline, 0, strlen(pline) - strlen(k)), v)
 				if escape == 2 # TeX の \[ \] や検索の正規表現 \( \) など
 					return DeleteKey(k, '\' .. checkStr)
 				elseif escape
@@ -400,17 +407,17 @@ def BS(): string # バックスペースの入力
 				else
 					return "\<BS>"
 				endif
-			elseif match(nline, '^' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置が閉じ括弧
+			elseif match(nline, '^' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置が閉じ括弧
 				return DeleteKey(k, checkStr)
 			elseif get(v, 'space', 0) # ペアの空白も削除対象
-				&& match(pline, escape(k, '.$*~\') .. '\s\+$') != -1 # カーソル前が開く括弧とスペース
-				&& match(nline, '^\s\+' .. escape(checkStr, '.$*~\')) != -1 # カーソル位置がスペースと閉じ括弧
+				&& match(pline, escape(k, '.$*~\[]') .. '\s\+$') != -1 # カーソル前が開く括弧とスペース
+				&& match(nline, '^\s\+' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置がスペースと閉じ括弧
 				return "\<BS>\<Del>"
 			endif
 		endfor
 	endfor
 	for [q, v] in items(g:pairquote) # 引用符自身や内部空白をペアで削除
-		checkStr = escape(q, '.$*~\')
+		checkStr = escape(q, '.$*~\[]')
 		for ft in get(v, 'type', [&filetype])
 			if &filetype != ft
 				continue
