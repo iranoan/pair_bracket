@@ -96,7 +96,7 @@ export def Init(): void
 	inoremap <expr> <CR>    <SID>CR()
 	inoremap <expr> <Space> <SID>Space()
 	# cnoremap <expr> <Space> <SID>Space() :cabbrev の区切りも空白なので、一切使えなくなる
-	defcompile # これがないと最初に使われるのがコマンドラインの時に無駄な改行 (echo '' のような振る舞い) が発生する
+	defcompile # これがないと最初に使われるのがコマンドラインの時に無駄な改行 (echo '' のような振る舞い) が発生する←Patch 9.0.1130 で修正
 enddef
 
 def SeparateLine(): list<string> # カーソル行のカーソルより前/後で文字列を分ける
