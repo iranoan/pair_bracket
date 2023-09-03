@@ -5,10 +5,10 @@ vim9script
 scriptencoding utf-8
 
 var BackCursor = (): string => # カーソルを戻す (閉じ括弧入力後に間に入れるときなど)
-	mode(1) =~# '^[ct]' ? "\<Left>" :
+	mode(1) =~# '^c' ? "\<Left>" :
 	&rightleft ? "\<C-G>U\<Right>" : "\<C-G>U\<Left>"
 var ForwardCursor = (): string => # カーソルを進める (閉じ括弧のタイプですでにその閉じ括弧が有った時など)
-	mode(1) =~# '^[ct]' ? "\<Right>" :
+	mode(1) =~# '^c' ? "\<Right>" :
 	&rightleft ? "\<C-G>U\<Left>" : "\<C-G>U\<Right>"
 
 export def Init(): void
@@ -103,7 +103,7 @@ def SeparateLine(): list<string> # カーソル行のカーソルより前/後�
 	var column: number
 	var line: string
 
-	if mode(1) =~# '^[ct]'
+	if mode(1) =~# '^c'
 		column = getcmdpos()
 		line = getcmdline()
 	else
