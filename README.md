@@ -18,8 +18,8 @@
   * 開き括弧ならカーソル前後に対応した閉じ括弧がなければペア入力
   * 閉じ括弧ならカーソル直後が同じ閉じ括弧で、カーソル前に対応する開き括弧も有ればカーソル移動し、無ければ閉じ括弧を入力
   * ただし
-    - 検索では正規表現でペア入力する必要がある括弧のみ
-    - どれも正確な対応ではなく個数だけで確認
+    * 検索では正規表現でペア入力する必要がある括弧のみ
+    * どれも正確な対応ではなく個数だけで確認
 * 前後が括弧ならば &lt;Space&gt; もペアで入力/削除
 * 前後が括弧ならば &lt;CR&gt; は括弧の間に空行作成
 * 引用符は
@@ -42,30 +42,30 @@ Vim9 script で書かれているので、version 8.0 以前や NeoVim では動
 
 ### [Vundle](https://github.com/gmarik/vundle)
 
-````vim
+```vim
 Plug 'iranoan/pair_bracket'
-````
+```
 
 ### [Vim-Plug](https://github.com/junegunn/vim-plug)
 
-````vim
+```vim
 Plug 'iranoan/pair_bracket'
-````
+```
 
 ### [NeoBundle](https://github.com/Shougo/neobundle.vim)
 
-````vim
+```vim
 NeoBundle 'iranoan/pair_bracket'
-````
+```
 
 ### [dein.nvim](https://github.com/Shougo/dein.vim)
 
-````vim
+```vim
 call dein#add('iranoan/pair_bracket')
-````
+```
 
 ### Vim packadd
 
-````sh
+```sh
 $ git clone https://github.com/iranoan/pair_bracket ~/.vim/pack/iranoan/start/pair_bracket
-````
+```
