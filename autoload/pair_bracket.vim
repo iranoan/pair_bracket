@@ -469,10 +469,12 @@ def Quote(str: string): string # クォーテーションの入力
 		is_next_odd = IsOddQuote(n) # カーソルより前に有る引用符が奇数個か?
 		if is_prev_odd == is_next_odd
 			return InPair()
-		elseif is_prev_odd || is_next_odd # 前後両方奇数個なら上が該当しているので、どちらか一方のみ奇数個
+		# elseif is_prev_odd || is_next_odd # 前後両方奇数個なら上が該当しているので、どちらか一方のみ奇数個
+		# 	return str
+		# else
+		# 	return InPair()
+		else # 前後両方偶数/奇数個なら上が該当しているので、どちらか一方のみ奇数個
 			return str
-		else
-			return InPair()
 		endif
 	enddef
 
