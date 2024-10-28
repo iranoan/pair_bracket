@@ -145,9 +145,9 @@ def DeleteEscaped(l: string, s: string, dic: dict<any>): string # s でエスケ
 		escape_c = get(dic, 'escape_char', {})->get(&filetype, '\')
 	endif
 	if escape_c ==# '\'
-		return substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\[]'), '', 'g')
+		return substitute(substitute(l, '\\\\', '', 'g'), '\\' .. escape(s, '.$*~\[]^'), '', 'g')
 	else
-		return substitute(substitute(l, escape(escape_c .. escape_c, '.$*~\[]'), '', 'g'), escape(escape_c .. s, '.$*~\[]'), '', 'g')
+		return substitute(substitute(l, escape(escape_c .. escape_c, '.$*~\[]^'), '', 'g'), escape(escape_c .. s, '.$*~\[]^'), '', 'g')
 	endif
 enddef
 
@@ -254,31 +254,31 @@ def GetMode(s: string, k: string, d: dict<any>): number # 検索モード、通�
 					&& ( s_quot_s == -1     || r_slash_s < s_quot_s )
 					&& ( s_dquot_s == -1    || r_slash_s < s_dquot_s )
 					&& ( replace_s == -1    || r_slash_s < replace_s )
-					line = substitute(line, '\%(\s*:\s*\)\?' .. escape(r_slash, '.$*~\[]') .. '\%(\s*[-+]\s*\d\+\s*\)\?,\?', '.', '')
+					line = substitute(line, '\%(\s*:\s*\)\?' .. escape(r_slash, '.$*~\[]^') .. '\%(\s*[-+]\s*\d\+\s*\)\?,\?', '.', '')
 				elseif r_question_s != -1
 					&& ( r_slash_s == -1    || r_question_s < r_slash_s )
 					&& ( s_quot_s == -1     || r_question_s < s_quot_s )
 					&& ( s_dquot_s == -1    || r_question_s < s_dquot_s )
 					&& ( replace_s == -1    || r_question_s < replace_s )
-					line = substitute(line, '\%(\s*:\s*\)\?' .. escape(r_question, '.$*~\[]') .. '\%(\s*[-+]\s*\d\+\s*\)\?,\?', '.', '')
+					line = substitute(line, '\%(\s*:\s*\)\?' .. escape(r_question, '.$*~\[]^') .. '\%(\s*[-+]\s*\d\+\s*\)\?,\?', '.', '')
 				elseif s_quot_s != -1
 					&& ( r_slash_s == -1    || s_quot_s < r_slash_s )
 					&& ( r_question_s == -1 || s_quot_s < r_question_s )
 					&& ( s_dquot_s == -1    || s_quot_s < s_dquot_s )
 					&& ( replace_s == -1    || s_quot_s < replace_s )
-					line = substitute(line, escape(s_quot, '.$*~\[]'), 'W', '')
+					line = substitute(line, escape(s_quot, '.$*~\[]^'), 'W', '')
 				elseif s_dquot_s != -1
 					&& ( r_slash_s == -1    || s_dquot_s < r_slash_s )
 					&& ( r_question_s == -1 || s_dquot_s < r_question_s )
 					&& ( s_quot_s == -1     || s_dquot_s < s_quot_s )
 					&& ( replace_s == -1    || s_dquot_s < replace_s )
-					line = substitute(line, escape(s_dquot, '.$*~\[]'), 'W', '')
+					line = substitute(line, escape(s_dquot, '.$*~\[]^'), 'W', '')
 				elseif replace_s != -1
 					&& ( r_slash_s == -1    || replace_s < r_slash_s )
 					&& ( r_question_s == -1 || replace_s < r_question_s )
 					&& ( s_quot_s == -1     || replace_s < s_quot_s )
 					&& ( s_dquot_s == -1    || replace_s < s_dquot_s )
-					line = substitute(line, escape(replace, '.$*~\[]'), ' ', '')
+					line = substitute(line, escape(replace, '.$*~\[]^'), ' ', '')
 				else
 					break
 				endif
@@ -310,7 +310,7 @@ def GetMode(s: string, k: string, d: dict<any>): number # 検索モード、通�
 			var bgn: number
 			var goal: number
 			var command: string = '\zs\%(^\s*\|*:\s*\%(\d\+\|[.$%]\|\\[?&/]\|''[A-Za-z<>]\)*\s*\)'
-			var escaped_sep: string = escape(sep, '/.$*~\[]')
+			var escaped_sep: string = escape(sep, '/.$*~\[]^')
 			# var escaped_sep1: string = escape(sep, '/')
 
 			[tmp_s, bgn, goal] = matchstrpos(str, command .. escaped_sep .. '\ze\%(\\' .. sep .. '\|[^' .. sep .. ']\)*$')
@@ -433,7 +433,7 @@ def InputCket(str: string): string # 閉じ括弧の入力、または入力の�
 		return str
 	endif
 	[prevMatch, nextMatch] = MatchBraCket(pline, nline, pairStr, str, pair_dic)
-	if match(nline, '^' .. escape(str, '.$*~\[]')) !=# -1 && prevMatch <= nextMatch
+	if match(nline, '^' .. escape(str, '.$*~\[]^')) !=# -1 && prevMatch <= nextMatch
 		return ForwardCursor()
 	else
 		return str
@@ -485,8 +485,8 @@ def Quote(str: string): string # クォーテーションの入力
 	endif
 	[pline, nline] = SeparateLine()
 	prevChar = matchstr(pline, '.$')
-	nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\[]') .. '\+'))
-	prevQuote = strlen(matchstr(pline, escape(str, '.$*~\[]') .. '\+$'))
+	nextQuote = strlen(matchstr(nline, '^' .. escape(str, '.$*~\[]^') .. '\+'))
+	prevQuote = strlen(matchstr(pline, escape(str, '.$*~\[]^') .. '\+$'))
 	if strlen(matchstr(pline, '\\\+$')) % 2 # 直前が \ でエスケープされている
 		|| prevChar =~# '\a'                  # 直前が欧文数字
 		|| prevChar =~# '\d'
@@ -526,7 +526,7 @@ def CR(): string # 改行の入力
 	endif
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
-		if match(nline, '^' .. escape(v.pair, '.$*~\[]')) != -1 && match(pline, escape(k, '.$*~\[]') .. '$') != -1
+		if match(nline, '^' .. escape(v.pair, '.$*~\[]^')) != -1 && match(pline, escape(k, '.$*~\[]^') .. '$') != -1
 			# return "\<CR>\<Esc>\<S-o>"
 			# ↓だと↑より /**/ 中の改行で行頭に * が付きにくい
 			return "\<CR>\<Esc>ko"
@@ -561,15 +561,15 @@ def Space(): string # スペースキーの入力
 	[pline, nline] = SeparateLine()
 	for [k, v] in items(g:pairbracket)
 		if get(v, 'space', 0)
-			if match(pline, escape(k, '.$*~\[]') .. '$') != -1 && # カーソル前が開く括弧
-				match(nline, '^' .. escape(v.pair, '.$*~\[]')) != -1 # カーソル位置が閉じ括弧
+			if match(pline, escape(k, '.$*~\[]^') .. '$') != -1 && # カーソル前が開く括弧
+				match(nline, '^' .. escape(v.pair, '.$*~\[]^')) != -1 # カーソル位置が閉じ括弧
 				return "\<Space>\<Space>" .. BackCursor()
 			endif
 		endif
 	endfor
 	# for [q, v] in items(g:pairquote) # 引用符の場合、スペースのペア入力が便利かどうか不明
-	# 	if match(pline, escape(q, '.$*~\[]') .. '$') != -1 && # カーソル前が引用符
-	# 		match(nline, '^' .. escape(q, '.$*~\[]')) != -1 # カーソル位置が同じ引用符
+	# 	if match(pline, escape(q, '.$*~\[]^') .. '$') != -1 && # カーソル前が引用符
+	# 		match(nline, '^' .. escape(q, '.$*~\[]^')) != -1 # カーソル位置が同じ引用符
 	# 		return "\<Space>\<Space>" .. BackCursor()
 	# 	endif
 	# endfor
@@ -601,11 +601,11 @@ def BS(): string # バックスペースの入力
 			if &filetype != ft
 				continue
 			endif
-			if match(pline, escape(k, '.$*~\[]') .. '$') == -1 # カーソル前が開く括弧ではない
+			if match(pline, escape(k, '.$*~\[]^') .. '$') == -1 # カーソル前が開く括弧ではない
 				continue
 			endif
 			checkStr = v.pair # ペアの括弧
-			if match(nline, '^\\' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置が \ + 閉じ括弧
+			if match(nline, '^\\' .. escape(checkStr, '.$*~\[]^')) != -1 # カーソル位置が \ + 閉じ括弧
 				var escape: number = GetMode(strpart(pline, 0, strlen(pline) - strlen(k)), k, v)
 				if escape == 2 # TeX の \[ \] や検索の正規表現 \( \) など
 					return DeleteKey(k, '\' .. checkStr)
@@ -614,17 +614,17 @@ def BS(): string # バックスペースの入力
 				else
 					return "\<BS>"
 				endif
-			elseif match(nline, '^' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置が閉じ括弧
+			elseif match(nline, '^' .. escape(checkStr, '.$*~\[]^')) != -1 # カーソル位置が閉じ括弧
 				return DeleteKey(k, checkStr)
 			elseif get(v, 'space', 0) # ペアの空白も削除対象
-				&& match(pline, escape(k, '.$*~\[]') .. '\s\+$') != -1 # カーソル前が開く括弧とスペース
-				&& match(nline, '^\s\+' .. escape(checkStr, '.$*~\[]')) != -1 # カーソル位置がスペースと閉じ括弧
+				&& match(pline, escape(k, '.$*~\[]^') .. '\s\+$') != -1 # カーソル前が開く括弧とスペース
+				&& match(nline, '^\s\+' .. escape(checkStr, '.$*~\[]^')) != -1 # カーソル位置がスペースと閉じ括弧
 				return "\<BS>\<Del>"
 			endif
 		endfor
 	endfor
 	for [q, v] in items(g:pairquote) # 引用符自身や内部空白をペアで削除
-		checkStr = escape(q, '.$*~\[]')
+		checkStr = escape(q, '.$*~\[]^')
 		for ft in get(v, 'type', [&filetype])
 			if &filetype != ft
 				continue
