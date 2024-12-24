@@ -63,19 +63,19 @@ Vim9 script で書かれているので、version 8.0 以前や NeoVim では動
 使用しているパッケージ・マネージャに従えば良い
 
 Vundle (https://github.com/gmarik/vundle)~
->
+>vim
 	Plug 'iranoan/pair_bracket'
 
 Vim-Plug (https://github.com/junegunn/vim-plug)~
->
+>vim
 	Plug 'iranoan/pair_bracket'
 
 NeoBundle (https://github.com/Shougo/neobundle.vim)~
->
+>vim
 	NeoBundle 'iranoan/pair_bracket'
 
 dein.nvim (https://github.com/Shougo/dein.vim)~
->
+>vim
 	call dein#add('iranoan/pair_bracket')
 
 Vim packadd~
@@ -135,7 +135,7 @@ g:pairbracket                                                    *g:pairbracket*
 
 	* 下記の Example のように複数文字や ASCII 外の指定も可能
 
-	Example: >
+	Example: >vim
 		let g:pairbracket = {
 			\ '(': {'pair': ')', 'space': 1, 'escape': {'vim': 1},
 			\ 	'search': {'v\': 0, '\': 2, 'v': 1, '_': 0}},
@@ -174,7 +174,7 @@ g:pairquote                                                        *g:pairquote*
 
 	* |g:pairbracket| と異なり 1 文字しか想定していない
 
-	Example: >
+	Example: >vim
 		let g:pairquote = {
 			\ '''': {},
 			\ "'": {'escape_char': {'vim': "'"}},
